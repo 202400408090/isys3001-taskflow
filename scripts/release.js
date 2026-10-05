@@ -189,15 +189,26 @@ function suggestVersion() {
 }
 
 /** Write the version into VERSION and package.json. */
-function bump(version, { commit = true } = {}) {
+function bump(version, { commit = true, tolerateCurrent = false } = {}) {
   if (!SEMVER.test(version)) {
     process.stderr.write(`\n  "${version}" is not a semantic version (expected MAJOR.MINOR.PATCH).\n\n`);
     process.exit(1);
   }
 
   const previous = currentVersion();
+
   if (previous === version) {
-    process.stderr.write(`\n  The version is already ${version}; nothing to change.\n\n`);
+    // The first release is the case that matters: the repository has to declare
+    // *some* version from its first commit, so the version file already holds
+    // the number the first tag will carry. Refusing here would make the very
+    // first release impossible.
+    if (tolerateCurrent) {
+      warn(`VERSION already reads ${version}; the version files need no change`);
+      return;
+    }
+    process.stderr.write(
+      `\n  The version is already ${version}; nothing to change. Choose a different number.\n\n`,
+    );
     process.exit(1);
   }
 
@@ -260,7 +271,7 @@ function release(version) {
   git(['switch', '--create', releaseBranch]);
   done(`on ${releaseBranch}`);
 
-  bump(version);
+  bump(version, { tolerateCurrent: true });
 
   step('regenerating CHANGELOG.md from the Git history');
   run('node', ['scripts/generate-changelog.js']);
