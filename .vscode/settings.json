@@ -1,0 +1,30 @@
+{
+  "//": "Shared editor settings, committed so that every contributor formats identically. A shared format removes whole categories of 'noise diff' commit.",
+  "editor.formatOnSave": false,
+  "editor.rulers": [100],
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.trimAutoWhitespace": true,
+  "files.eol": "\n",
+  "files.encoding": "utf8",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/data": true,
+    "**/coverage": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/coverage": true,
+    "CHANGELOG.md": true
+  },
+  "javascript.preferences.quoteStyle": "single",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "//git": "The repository declares its own line endings in .gitattributes, so autocrlf must not second-guess it.",
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": false,
+  "git.inputValidationLength": 72,
+  "git.inputValidationSubjectLength": 72
+}
