@@ -1,7 +1,0 @@
-chore: ignore temporary commit-message files
-
-A script that writes a multi-line commit message needs somewhere to put
-it, and that file must never itself be committed. It was committed once
-during the hotfix work, which is exactly the failure this entry prevents.
-
-Refs: ISYS3001 A2 - configuration management (ULO2)
