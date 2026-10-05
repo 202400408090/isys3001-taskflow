@@ -209,6 +209,105 @@ test('rate limiting does not count the liveness probe', async () => {
   });
 });
 
+test('a client cannot escape its rate limit by spoofing X-Forwarded-For', async () => {
+  await withServer({ RATE_LIMIT_MAX_REQUESTS: '3', RATE_LIMIT_WINDOW_MS: '60000' }, async (server) => {
+    // This suite connects directly, so no trusted proxy sits in front of the
+    // process and the forwarded header must be ignored entirely. If it were
+    // honoured, each request below would land in a different bucket and the
+    // limit would never be reached.
+    const statuses = [];
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': `203.0.113.${attempt + 1}` },
+      });
+      statuses.push(response.status);
+    }
+
+    assert.deepEqual(
+      statuses,
+      [200, 200, 200, 429, 429],
+      'rotating the forwarded header must not reset the budget for the connection address',
+    );
+  });
+});
+
+test('an untrusted peer cannot inflate another client\'s request count', async () => {
+  await withServer({ RATE_LIMIT_MAX_REQUESTS: '2', RATE_LIMIT_WINDOW_MS: '60000' }, async (server) => {
+    // Naming a victim address must not consume that victim's budget, otherwise
+    // any client could deny service to any other client by naming it.
+    const first = await server.request('GET', '/api/v1/tasks', {
+      headers: { 'X-Forwarded-For': '198.51.100.9' },
+    });
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get('ratelimit-remaining'), '1', 'the count must be the peer\'s, not the named address\'s');
+  });
+});
+
+test('X-Forwarded-For is honoured only when the peer is a trusted proxy', async () => {
+  await withServer(
+    {
+      RATE_LIMIT_MAX_REQUESTS: '2',
+      RATE_LIMIT_WINDOW_MS: '60000',
+      // The suite connects from the loopback address, so declaring loopback
+      // trusted is what makes the forwarded header meaningful in this scenario.
+      TRUSTED_PROXIES: '127.0.0.1,::1,::ffff:127.0.0.1',
+    },
+    async (server) => {
+      const first = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '198.51.100.7' },
+      });
+      assert.equal(first.status, 200);
+      assert.equal(first.headers.get('ratelimit-remaining'), '1');
+
+      // A different forwarded address is a different client, counted
+      // separately, which is the behaviour a deployment behind a load balancer
+      // depends on.
+      const second = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '198.51.100.8' },
+      });
+      assert.equal(second.status, 200);
+      assert.equal(second.headers.get('ratelimit-remaining'), '1');
+
+      // The same forwarded address is the same client, and is limited.
+      await server.request('GET', '/api/v1/tasks', { headers: { 'X-Forwarded-For': '198.51.100.7' } });
+      const third = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '198.51.100.7' },
+      });
+      assert.equal(third.status, 429);
+    },
+  );
+});
+
+test('a forwarded chain is resolved right-to-left, skipping trusted hops', async () => {
+  await withServer(
+    {
+      RATE_LIMIT_MAX_REQUESTS: '2',
+      RATE_LIMIT_WINDOW_MS: '60000',
+      TRUSTED_PROXIES: '127.0.0.1,::1,::ffff:127.0.0.1',
+    },
+    async (server) => {
+      // A client may prepend arbitrary entries to the header. Only the entries
+      // that a trusted hop actually appended can be believed, so the address is
+      // taken from the right-hand end of the chain.
+      const spoofed = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '1.2.3.4, 198.51.100.20' },
+      });
+      assert.equal(spoofed.status, 200);
+      assert.equal(spoofed.headers.get('ratelimit-remaining'), '1');
+
+      // The same real client behind the same proxy, with a different lie in
+      // front of it, must still be the same bucket.
+      await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '9.9.9.9, 198.51.100.20' },
+      });
+      const third = await server.request('GET', '/api/v1/tasks', {
+        headers: { 'X-Forwarded-For': '9.9.9.9, 198.51.100.20' },
+      });
+      assert.equal(third.status, 429, 'a prepended entry must not create a fresh bucket');
+    },
+  );
+});
+
 test('CORS allows a preflight request and echoes an allowed origin', async () => {
   await withServer({ CORS_ORIGINS: 'https://tasks.example.edu' }, async (server) => {
     const preflight = await server.request('OPTIONS', '/api/v1/tasks', {
