@@ -14,6 +14,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **http:** consider the forwarded address for rate limiting (`547b151`)
 
+### Build
+
+- **scripts:** collect the screenshot-ready version control evidence (`a5043b9`)
+
 ## [1.0.1] - 2026-10-05
 
 ### Fixed
