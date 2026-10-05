@@ -201,6 +201,41 @@ function suggestVersion() {
   return `${major}.${Number.isFinite(minor) ? minor + 1 : 1}.0`;
 }
 
+/** True when a merge is in progress and has unresolved conflicts. */
+function hasUnmergedPaths() {
+  return git(['diff', '--name-only', '--diff-filter=U'], { capture: true }) !== '';
+}
+
+/**
+ * Merge a branch, and if git stops on a conflict, stop too - with instructions.
+ *
+ * A conflict is not a tooling failure: it means two lines of work genuinely
+ * disagree, and a person has to decide. What the tooling must not do is crash
+ * with a stack trace and leave the operator to infer the repository state. It
+ * reports which files conflict, states the two commands that finish the job, and
+ * exits non-zero so a pipeline stage that ran this sees a failure.
+ */
+function mergeOrExplain(branch, message, { after } = {}) {
+  try {
+    git(['merge', '--no-ff', branch, '--message', message]);
+    return true;
+  } catch (error) {
+    if (!hasUnmergedPaths()) throw error;
+
+    const conflicted = git(['diff', '--name-only', '--diff-filter=U'], { capture: true })
+      .split('\n')
+      .filter(Boolean);
+
+    process.stderr.write(
+      `\n  Merge conflict in ${conflicted.length} file(s):\n` +
+        conflicted.map((file) => `    ${file}\n`).join('') +
+        '\n' +
+        (after ? `${after}\n\n` : '\n'),
+    );
+    process.exit(1);
+  }
+}
+
 /** Write the version into VERSION and package.json. */
 function bump(version, { commit = true, tolerateCurrent = false } = {}) {
   if (!SEMVER.test(version)) {
@@ -334,7 +369,13 @@ function release(version) {
 
   step('merging into main');
   git(['switch', 'main']);
-  git(['merge', '--no-ff', releaseBranch, '--message', `${isHotfix ? 'hotfix' : 'release'}: ${version}`]);
+  mergeOrExplain(releaseBranch, `${isHotfix ? 'hotfix' : 'release'}: ${version}`, {
+    // A conflict merging into main means the release branch is not a superset of
+    // main, which for a hotfix means main received a fix the hotfix branch did
+    // not start from. That has to be resolved by a person who knows which
+    // version of the code is correct.
+    after: `  Resolve the conflicts, commit the merge, then run:\n    node scripts/release.js tag ${version}`,
+  });
   done('main updated');
 
   step(`tagging v${version}`);
@@ -343,7 +384,16 @@ function release(version) {
 
   step('merging back into develop');
   git(['switch', 'develop']);
-  git(['merge', '--no-ff', releaseBranch, '--message', `merge: ${releaseBranch} back into develop`]);
+  mergeOrExplain(releaseBranch, `merge: ${releaseBranch} back into develop`, {
+    after:
+      '  A conflict here is expected and healthy: develop has moved on since the\n' +
+      '  release branch was cut, and the release carries a fix develop does not have.\n' +
+      '  Resolve it in favour of the released version for the files the release\n' +
+      '  changes, then run:\n' +
+      '    git commit --no-edit\n' +
+      `    git branch --delete ${releaseBranch}\n` +
+      '  Leaving the branch in place until the merge is committed is deliberate.',
+  });
   done('develop updated, so the release cannot be reverted by the next one');
 
   step(`deleting ${releaseBranch}`);
