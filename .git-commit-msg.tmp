@@ -1,34 +1,7 @@
-fix(http): trust X-Forwarded-For only from a configured proxy
+chore: ignore temporary commit-message files
 
-A client could escape its rate limit entirely, and could spend another
-client's budget, by setting a request header.
-
-The defect
-  The limiter counted requests against the first entry of
-  X-Forwarded-For whenever the header was present. That header is set by
-  the caller, so:
-    * rotating it across requests put every request in a fresh bucket and
-      the limit was never reached - the control was effectively absent
-      while still appearing to work;
-    * naming somebody else's address consumed that person's budget, so a
-      targeted denial of service cost the attacker nothing.
-
-The correction
-  The header is read only when the immediate peer is listed in the new
-  TRUSTED_PROXIES setting, which means the value was appended by
-  infrastructure the deployment controls. The chain is then read from the
-  right-hand end, because a client can prepend entries of its own but
-  cannot remove the one the last trusted hop appended.
-
-  TRUSTED_PROXIES defaults to empty, so a direct deployment ignores the
-  header and shares one budget. That is the safe failure mode: the
-  deployment is less convenient than intended, not less protected.
-
-Why the tests did not catch it
-  The suite connects directly, and the previous rate-limit cases never
-  sent the header, so the untrusted path was never exercised. Three cases
-  are added that fail against the previous implementation: spoofing does
-  not reset the budget, naming a victim does not consume the victim's
-  budget, and a prepended entry does not create a fresh bucket.
+A script that writes a multi-line commit message needs somewhere to put
+it, and that file must never itself be committed. It was committed once
+during the hotfix work, which is exactly the failure this entry prevents.
 
 Refs: ISYS3001 A2 - configuration management (ULO2)
