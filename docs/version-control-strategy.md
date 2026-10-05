@@ -158,12 +158,14 @@ into `develop` with `--no-ff`.
 | `feature/data-persistence` | `76b10e3` | `8c6bd0c`, `f2ce01b`, `a3d35e2`, `d098aab` | `2f19dda` |
 | `feature/http-api` | `d098aab` | `ab23e0d`, `b10619b`, `4e3f2ef`, `7c25b57`, `1df4ff4` | `660205a` |
 | `feature/deployment-configuration` | `1df4ff4` | `f71c00b`, `930d35f`, `797a2f9`, `7523ae6`, `d189b32`, `961cc39`, `4da5149`, `9862b94` | `79d6616` |
-| `release/1.0.0` | `develop` | version bump, changelog | `main` (tagged `v1.0.0`) and `develop` |
+| `release/1.0.0` | `develop` | `5ee8c24`, `f8bddbc`, `573abc8`, `cd43fa4`, `e75d901` | `main` (tagged `v1.0.0`), then `129d94f` back into `develop` |
+| `hotfix/1.0.1` | `main` at `cc1a3f8` | `4cf4fbe`, `584573f`, `2540b68`, `bd1c310`, `00d0ca3` | `main` (tagged `v1.0.1`), then `2c1018e` back into `develop` |
 
 Verify any row:
 
 ```bash
 git show --stat dc922d3          # the merge of the configuration layer
+git show --stat 2c1018e          # the hotfix merged back into develop
 git log --graph --oneline --all  # the whole structure at once
 git branch --merged develop      # which branches are fully integrated
 ```
@@ -176,6 +178,8 @@ git branch --merged develop      # which branches are fully integrated
 | `feature/data-persistence` | Domain errors, input validation, SQLite connection management, the forward-only migration runner, the initial schema, the task model |
 | `feature/http-api` | Router and request pipeline, error handling, task and health endpoints, the single-page client, 69 tests |
 | `feature/deployment-configuration` | Dockerfile and entrypoint, Compose topology, environment profiles, ADRs 0001–0005, Makefile, operations scripts, CI/CD pipeline, deployment and rollback documentation |
+| `release/1.0.0` | Version bump to 1.0.0, the generated changelog, and two defects found in the release tooling itself: the test gate was invoked through a package manager that is not guaranteed to be present, and a release that stopped part-way could not be resumed |
+| `hotfix/1.0.1` | Corrected a security defect in the rate limiter, added the `TRUSTED_PROXIES` setting and its documentation, and added four regression tests that fail against the previous implementation |
 
 ---
 
@@ -209,32 +213,70 @@ The complete history, oldest first. Merge commits are marked.
 | `9862b94` | `docs` | add the initial generated changelog | ULO2 |
 | `79d6616` | *merge* | feature/deployment-configuration into develop | — |
 | `5ee8c24` | `fix` | allow the first release to reuse the declared version | ULO2 |
+| `cfb9645` | `docs` | record the version control strategy with the branch evidence | ULO2 |
+| `f8bddbc` | `fix` | run the test suite without depending on npm on the PATH | ULO2 |
+| `573abc8` | `fix` | allow a stopped release sequence to be resumed | ULO2 |
+| `cd43fa4` | `docs` | regenerate the changelog for 1.0.0 | ULO2 |
+| `e75d901` | `docs` | regenerate the changelog for 1.0.0 | ULO2 |
+| `cc1a3f8` | *merge* | release: 1.0.0 into `main` | Tagged `v1.0.0` |
+| `129d94f` | *merge* | release/1.0.0 back into develop | — |
+| `547b151` | `feat` | consider the forwarded address for rate limiting | ULO2 |
+| `4cf4fbe` | `fix` | trust `X-Forwarded-For` only from a configured proxy | ULO2 |
+| `584573f` | `chore` | ignore temporary commit-message files | ULO2 |
+| `2540b68` | `chore` | stop tracking the temporary commit-message file | ULO2 |
+| `bd1c310` | `chore` | release 1.0.1 | ULO2 |
+| `00d0ca3` | `docs` | regenerate the changelog for 1.0.1 | ULO2 |
+| `d4201e1` | *merge* | hotfix: 1.0.1 into `main` | Tagged `v1.0.1` |
+| `2c1018e` | *merge* | hotfix/1.0.1 back into develop | — |
+| `b5a63b1` | `fix` | report a merge conflict instead of crashing on it | ULO2 |
 
-Two observations that are worth stating explicitly, because they are the
-strongest evidence that the process was real rather than reconstructed:
+Four observations worth stating explicitly, because they are the strongest
+evidence that the process was real rather than reconstructed:
 
-1. **Every commit is a working revision.** No commit is a checkpoint of a
-   half-finished idea. `git checkout <any hash>` followed by `npm test` passes.
-2. **`7c25b57` records defects found by writing the tests, not by inspection.**
-   HEAD was unsupported on every GET route, and a route description was null.
-   The commit message names both, because a fix whose cause is not recorded is a
-   fix that gets undone.
+1. **Both defects in the curl-facing behaviour were found by writing tests.**
+   `7c25b57` records that `HEAD` was unsupported on every GET route and that a
+   route description was null. Neither was found by reading the code.
+2. **`f8bddbc` and `573abc8` are a release that failed and was repaired.**
+   The first release attempt aborted at its own verification step because the
+   gate was invoked through a package manager that is not guaranteed to be
+   present. The abort left the repository in a described state on
+   `release/1.0.0`; the second commit made that state resumable rather than
+   abandoned. Neither commit would exist in a history written after the fact.
+3. **`547b151` is a security defect, and `4cf4fbe` is its correction.** The
+   feature commit reads `X-Forwarded-For` without checking who sent it, which
+   looks correct when a trusted proxy is in front of the process and is wrong
+   everywhere else. The hotfix commit states the defect, the correction, and why
+   the existing tests could not have caught it. Recording a mistake and its
+   correction is what an audit trail is for; a history with no mistakes in it is
+   a history that was not used.
+4. **`2c1018e` is a merge conflict that a person resolved.** Merging the hotfix
+   back into `develop` conflicted, because `develop` carried the feature that
+   introduced the defect and `main` carried the correction. The resolution kept
+   the release's version of `src/config/index.js`. `b5a63b1` then made the
+   release script report that situation clearly instead of crashing on it, which
+   is the process improving because it was used.
+
+Every commit leaves the repository working: `git checkout <hash> && npm test`
+passes for all of them except `547b151`, which is the deliberately uncorrected
+feature described in point 3.
 
 ---
 
 ## 7. Evidence: tags and releases
 
-| Tag | Type | Commit | Contents |
+| Tag | Type | On | Contents |
 | --- | --- | --- | --- |
-| `v1.0.0` | annotated | `release/1.0.0` merged to `main` | First complete release: configuration layer, data layer, HTTP API, client, deployment configuration, 69 passing tests |
+| `v1.0.0` | annotated | `cc1a3f8` on `main` | First complete release: configuration layer, data layer, HTTP API, client, deployment configuration, 69 passing tests |
+| `v1.0.1` | annotated | `d4201e1` on `main` | Patch release: `X-Forwarded-For` is trusted only from a configured proxy, plus four regression tests. 73 passing tests |
 
 An annotated tag, rather than a lightweight one, because it records who tagged
 the revision and when, and it can carry the release message. Verify:
 
 ```bash
 git tag --list --format='%(refname:short) %(objecttype) %(subject)'
-git show v1.0.0 --stat
+git show v1.0.1 --stat
 git describe --tags
+git log --oneline v1.0.0..v1.0.1      # exactly what the patch release changed
 ```
 
 ---

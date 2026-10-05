@@ -10,6 +10,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **http:** consider the forwarded address for rate limiting (`547b151`)
+
+## [1.0.1] - 2026-10-05
+
 ### Fixed
 
 - **http:** trust X-Forwarded-For only from a configured proxy (`4cf4fbe`)
@@ -26,12 +32,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **http:** add request pipeline, router and error handling (`ab23e0d`)
 - **api:** add domain errors and input validation (`8c6bd0c`)
 - **config:** add layered, validated environment configuration (`76b10e3`)
-
-### Fixed
-
-- **release:** allow a stopped release sequence to be resumed (`573abc8`)
-- **release:** run the test suite without depending on npm on the PATH (`f8bddbc`)
-- **release:** allow the first release to reuse the declared version (`5ee8c24`)
 
 ### Build
 
@@ -50,12 +50,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Documentation
 
-- **changelog:** regenerate for 1.0.0 (`e75d901`)
-- **changelog:** regenerate for 1.0.0 (`cd43fa4`)
 - record the version control strategy with the branch evidence (`cfb9645`)
-- **changelog:** add the initial generated changelog (`9862b94`)
 - document the deployment configuration and the rollback procedure (`4da5149`)
 - **config:** add the environment profiles and the decision records (`797a2f9`)
 - document the version control conventions (`f71c00b`)
 
-Current release: **1.0.0**
+Current release: **1.0.1**

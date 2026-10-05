@@ -47,6 +47,24 @@ const SECTIONS = [
 /** Types that describe the project's own plumbing and are hidden by default. */
 const HIDDEN_TYPES = new Set(['chore', 'style']);
 
+/**
+ * Commits that maintain this document are excluded from it.
+ *
+ * Without this rule, regenerating the changelog always produces a new entry
+ * describing the commit that regenerated the changelog. The file could then
+ * never be up to date with the history, and the `--check` mode in the pipeline
+ * would fail on every run - which is how this rule came to be added.
+ */
+const SELF_REFERENTIAL_SCOPES = new Set(['changelog', 'release']);
+
+function isSelfReferential(subject) {
+  // Match on the conventional-commit scope, so `docs(changelog): ...` and
+  // `chore(release): ...` are excluded while an ordinary `docs: ...` commit is
+  // kept.
+  const { scope } = parseSubject(subject);
+  return scope ? SELF_REFERENTIAL_SCOPES.has(scope.toLowerCase()) : false;
+}
+
 class GitUnavailableError extends Error {}
 
 /** Run a git command and return its standard output. */
@@ -237,6 +255,7 @@ function renderEntries(commits, { includeMaintenance, repositoryUrl }) {
     const parsed = parseSubject(commit.subject);
     if (parsed.breaking || /^BREAKING CHANGE:/m.test(commit.body)) breaking.push(commit);
     if (!includeMaintenance && HIDDEN_TYPES.has(parsed.type)) continue;
+    if (isSelfReferential(commit.subject)) continue;
 
     const heading = SECTIONS.find(([type]) => type === parsed.type)?.[1] ?? 'Other';
     if (!groups.has(heading)) groups.set(heading, []);
