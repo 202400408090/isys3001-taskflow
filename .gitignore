@@ -51,6 +51,16 @@ coverage/
 *.tsbuildinfo
 
 # ---------------------------------------------------------------
+# Generated evidence and preview artefacts
+#
+# Produced by scripts/collect-evidence.js and by document rendering. They
+# are derivable from the history, so committing them would duplicate the
+# repository's own content and would go stale on the very next commit.
+# ---------------------------------------------------------------
+evidence/
+preview-*/
+
+# ---------------------------------------------------------------
 # Editor / OS noise
 # ---------------------------------------------------------------
 .DS_Store
