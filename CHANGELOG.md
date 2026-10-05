@@ -10,7 +10,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-No release tag exists yet. Commit history so far:
+### Fixed
+
+- **http:** trust X-Forwarded-For only from a configured proxy (`4cf4fbe`)
+
+## [1.0.0] - 2026-10-05
 
 ### Added
 
@@ -46,9 +50,12 @@ No release tag exists yet. Commit history so far:
 
 ### Documentation
 
+- **changelog:** regenerate for 1.0.0 (`e75d901`)
 - **changelog:** regenerate for 1.0.0 (`cd43fa4`)
 - record the version control strategy with the branch evidence (`cfb9645`)
 - **changelog:** add the initial generated changelog (`9862b94`)
 - document the deployment configuration and the rollback procedure (`4da5149`)
 - **config:** add the environment profiles and the decision records (`797a2f9`)
 - document the version control conventions (`f71c00b`)
+
+Current release: **1.0.0**
