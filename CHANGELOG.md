@@ -25,6 +25,8 @@ No release tag exists yet. Commit history so far:
 
 ### Fixed
 
+- **release:** allow a stopped release sequence to be resumed (`573abc8`)
+- **release:** run the test suite without depending on npm on the PATH (`f8bddbc`)
 - **release:** allow the first release to reuse the declared version (`5ee8c24`)
 
 ### Build
@@ -44,6 +46,7 @@ No release tag exists yet. Commit history so far:
 
 ### Documentation
 
+- **changelog:** regenerate for 1.0.0 (`cd43fa4`)
 - record the version control strategy with the branch evidence (`cfb9645`)
 - **changelog:** add the initial generated changelog (`9862b94`)
 - document the deployment configuration and the rollback procedure (`4da5149`)
