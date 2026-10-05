@@ -125,6 +125,20 @@ export function cors({ config }) {
 }
 
 /**
+ * Resolve the client address the limiter should count against.
+ *
+ * Behind a reverse proxy every connection appears to arrive from the proxy, so
+ * the forwarded address has to be considered or the whole deployment shares one
+ * budget. The forwarded value is therefore preferred when the request carries
+ * one.
+ */
+function resolveClientAddress(request) {
+  const forwarded = request.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return request.clientIp ?? 'unknown';
+}
+
+/**
  * Apply a fixed-window rate limit per client IP.
  *
  * The window is stored in a Map rather than pulled from a store, because the
@@ -147,7 +161,7 @@ export function rateLimit({ config, logger }) {
     }
 
     const now = Date.now();
-    const key = request.clientIp ?? 'unknown';
+    const key = resolveClientAddress(request);
     let bucket = buckets.get(key);
 
     if (!bucket || now >= bucket.resetAt) {
