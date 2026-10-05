@@ -1,6 +1,6 @@
 {
   "name": "isys3001-todo-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TaskFlow - a small task management web application built with zero external runtime dependencies for the ISYS3001 software development project.",
   "private": true,
   "type": "module",

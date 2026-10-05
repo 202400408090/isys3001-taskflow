@@ -70,7 +70,36 @@ never storing a secret.
 | --- | --- | --- | --- |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | no | Sliding-window length for `/api/*`. |
 | `RATE_LIMIT_MAX_REQUESTS` | `300` | no | Requests permitted per window per client IP. |
+| `TRUSTED_PROXIES` | *(empty)* | behind a proxy | Comma-separated addresses permitted to set `X-Forwarded-For`. Empty means the header is ignored. |
 | `BODY_LIMIT` | `64kb` | no | Maximum JSON body size. Accepts `512`, `64kb`, `1mb`, `2gb`. |
+
+#### Why `TRUSTED_PROXIES` is empty by default
+
+`X-Forwarded-For` is a **request header**, so any client can set it. If the
+application honours it unconditionally, two things follow:
+
+1. A client that changes one header per request is never rate limited at all,
+   because every request lands in a fresh bucket.
+2. A client that names somebody else's address spends *that* client's budget, so
+   denying service to a specific user costs the attacker nothing.
+
+The header is therefore read only when the immediate peer is on the
+`TRUSTED_PROXIES` list — that is, only when the value was appended by
+infrastructure the deployment controls — and the chain is read from the
+right-hand end, because a client can prepend entries of its own but cannot remove
+the one the last trusted hop appended.
+
+Leaving it empty is correct for a direct deployment. It produces one shared
+budget across all clients, which is the safe failure mode. Set it only when a
+proxy or load balancer genuinely sits in front of the process:
+
+```bash
+# Behind a load balancer on the private network
+TRUSTED_PROXIES=10.0.0.1,10.0.0.2
+```
+
+This behaviour was corrected in **v1.0.1**; before that the header was honoured
+unconditionally. See `CHANGELOG.md`.
 
 ### Deployment metadata
 

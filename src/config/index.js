@@ -47,6 +47,7 @@ export const DEFAULTS = {
   LOG_FORMAT: 'pretty',
   RATE_LIMIT_WINDOW_MS: '60000',
   RATE_LIMIT_MAX_REQUESTS: '300',
+  TRUSTED_PROXIES: '',
   BODY_LIMIT: '64kb',
   APP_VERSION: '0.0.0',
   GIT_COMMIT: 'unknown',
@@ -203,6 +204,19 @@ export function buildConfig(values, { sources = [] } = {}) {
     problems.push(`CORS_ORIGINS must not contain "*" in the ${env} environment`);
   }
 
+  /**
+   * The addresses of reverse proxies permitted to set `X-Forwarded-For`.
+   *
+   * Empty by default, which means the header is ignored. That default is the
+   * safe one, and it is the correction applied in 1.0.1: honouring a forwarded
+   * address from an arbitrary peer lets any client choose its own rate-limit
+   * bucket by changing one header, and lets it spend another client's budget.
+   */
+  const trustedProxies = String(values.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
   const databasePath = String(values.DATABASE_PATH || DEFAULTS.DATABASE_PATH);
 
   if (problems.length > 0) {
@@ -247,6 +261,7 @@ export function buildConfig(values, { sources = [] } = {}) {
         max: 1_000_000,
         problems,
       }),
+      trustedProxies: Object.freeze(trustedProxies),
     }),
     http: Object.freeze({ bodyLimit }),
     meta: Object.freeze({ sources: Object.freeze([...sources]) }),
