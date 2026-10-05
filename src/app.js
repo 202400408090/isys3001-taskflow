@@ -20,7 +20,7 @@ import { Router } from './lib/router.js';
 import { sendJson } from './lib/http.js';
 import { getDatabase, closeDatabase } from './db/connection.js';
 import { runMigrations, migrationStatus } from './db/migrate.js';
-import { requestContext, accessLog, cors, rateLimit, requireApiKey, staticFiles } from './middleware/index.js';
+import { requestContext, accessLog, cors, rateLimit, requireApiKey, staticFiles, headOnly } from './middleware/index.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createHealthRoutes } from './routes/health.routes.js';
 import { createTaskRoutes } from './routes/tasks.routes.js';
@@ -113,20 +113,37 @@ export function createApp({ config, db: injectedDb, logger: injectedLogger }) {
   const tasks = createTaskRoutes({ config, db, logger });
 
   const router = new Router();
+
+  /**
+   * Register a read endpoint for both GET and HEAD.
+   *
+   * A GET registration is completed with a HEAD entry whose body writes are
+   * suppressed, so the runtime route table documents both methods and a HEAD
+   * request never serialises a payload it will not send.
+   */
+  const read = (pattern, handler, meta) => {
+    router.get(pattern, handler, { ...meta, head: false });
+    router.head(pattern, headOnly(handler), meta);
+    return router;
+  };
+
+  read('/healthz', health.live, { description: 'Liveness probe' });
+  read('/readyz', health.ready, { description: 'Readiness probe including a database check' });
+  read('/api/v1/meta', health.meta, { description: 'Description of the running instance' });
+  read('/api/v1/tasks', tasks.list, { description: 'List tasks with filtering and pagination' });
+  read('/api/v1/tasks/summary', tasks.summary, { description: 'Aggregate counts for the client dashboard' });
+  read('/api/v1/tasks/:id', tasks.get, { description: 'Fetch a single task by id' });
+  read('/api/v1', (request, response) => {
+    sendJson(response, 200, {
+      data: { name: config.appName, version: config.version, routes: router.describe() },
+    });
+  }, { description: 'Service description and route table' });
+
   router
-    .get('/healthz', health.live, { description: 'Liveness probe' })
-    .get('/readyz', health.ready, { description: 'Readiness probe including database check' })
-    .get('/api/v1/meta', health.meta, { description: 'Running instance description' })
-    .get('/api/v1/tasks', tasks.list, { description: 'List tasks with filtering and pagination' })
     .post('/api/v1/tasks', tasks.create, { description: 'Create a task' })
-    .delete('/api/v1/tasks', tasks.deleteAll, { description: 'Delete every task' })
-    .get('/api/v1/tasks/summary', tasks.summary, { description: 'Dashboard counts' })
-    .get('/api/v1/tasks/:id', tasks.get, { description: 'Fetch one task' })
     .patch('/api/v1/tasks/:id', tasks.patch, { description: 'Update a task' })
     .delete('/api/v1/tasks/:id', tasks.delete, { description: 'Delete a task' })
-    .get('/api/v1', (request, response) => {
-      sendJson(response, 200, { data: { name: config.appName, version: config.version, routes: router.describe() } });
-    });
+    .delete('/api/v1/tasks', tasks.deleteAll, { description: 'Delete every task' });
 
   // Middleware pipeline, applied in this order for these reasons:
   //   1. requestContext  - everything after it can log with a correlation id

@@ -34,7 +34,15 @@ export class Router {
   }
 
   get(pattern, handler, meta) {
-    return this.add('GET', pattern, handler, meta);
+    // RFC 9110 requires a resource that answers GET to answer HEAD. The caller
+    // supplies the GET handler and wraps it; see `head` below.
+    this.add('GET', pattern, handler, meta);
+    if (meta?.head !== false) this.head(pattern, meta?.headHandler ?? handler, meta);
+    return this;
+  }
+
+  head(pattern, handler, meta) {
+    return this.add('HEAD', pattern, handler, meta);
   }
 
   post(pattern, handler, meta) {
@@ -85,6 +93,9 @@ export class Router {
     }
 
     if (allowedMethods.size > 0) {
+      // A client that can GET a resource can also HEAD it, so both are offered
+      // when the path exists but the method does not.
+      if (allowedMethods.has('GET')) allowedMethods.add('HEAD');
       allowedMethods.add('OPTIONS');
       return { handler: null, params: null, allowedMethods: [...allowedMethods].sort() };
     }

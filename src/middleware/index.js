@@ -11,6 +11,31 @@ import { RateLimitError, AuthenticationError } from '../lib/errors.js';
 import { sendJson, withTiming } from '../lib/http.js';
 
 /**
+ * Adapt a GET handler so it can also answer HEAD.
+ *
+ * RFC 9110 requires a resource that supports GET to support HEAD, and Node.js
+ * does strip the body from a HEAD response - but only after the handler has
+ * already serialised it. Suppressing the write here avoids that wasted work and
+ * makes the intent explicit.
+ *
+ * Headers are preserved, including `Content-Length`, which is the whole point of
+ * HEAD: a client uses it to learn the size a GET would return.
+ */
+export function headOnly(handler) {
+  return (request, response, context) => {
+    const suppressed = Object.create(response);
+    suppressed.write = () => true;
+    suppressed.end = () => {
+      // `writeHead` was already called by the handler, so ending the raw
+      // response sends the status line and headers with an empty body.
+      Object.getPrototypeOf(response).end.call(response);
+      return response;
+    };
+    return handler(request, suppressed, context);
+  };
+}
+
+/**
  * Attach a correlation id to every request.
  *
  * A client-supplied `X-Request-Id` is honoured after being sanity-checked, so a
