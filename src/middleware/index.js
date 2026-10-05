@@ -147,12 +147,46 @@ function resolveClientAddress(request) {
  * is configuration and not a constant.
  */
 export function rateLimit({ config, logger }) {
-  const { windowMs, maxRequests } = config.rateLimit;
+  const { windowMs, maxRequests, trustedProxies } = config.rateLimit;
   const buckets = new Map();
 
   // Bound the memory the limiter can consume: an attacker cycling source
   // addresses must not be able to grow the Map without limit.
   const MAX_TRACKED_CLIENTS = 10_000;
+
+  /**
+   * Decide which address to count against.
+   *
+   * `X-Forwarded-For` is a request header, so any client can set it. Trusting it
+   * unconditionally is worse than the shared-budget problem it appears to
+   * solve: a client that changes one header per request is never limited at
+   * all, and a client that names somebody else's address spends *that
+   * client's* budget instead of its own.
+   *
+   * The header is therefore read only when the immediate peer is a configured
+   * trusted proxy, which means the value was appended by infrastructure the
+   * deployment controls rather than by the caller. The chain is then read from
+   * the right-hand end, because a client can prepend entries of its own but
+   * cannot remove the one the last trusted hop appended.
+   */
+  const resolveClientAddress = (request) => {
+    const peer = request.clientIp ?? 'unknown';
+    const forwarded = request.headers['x-forwarded-for'];
+
+    if (!forwarded || trustedProxies.length === 0 || !trustedProxies.includes(peer)) return peer;
+
+    const chain = String(forwarded)
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    for (let index = chain.length - 1; index >= 0; index -= 1) {
+      if (!trustedProxies.includes(chain[index])) return chain[index];
+    }
+
+    // Every entry named a trusted hop, so the chain carries no client address.
+    return peer;
+  };
 
   return (request, response, next) => {
     if (!request.pathname.startsWith('/api')) {

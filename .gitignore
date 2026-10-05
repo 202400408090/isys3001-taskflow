@@ -68,3 +68,8 @@ Desktop.ini
 # ---------------------------------------------------------------
 .eslintcache
 .node-version.local
+
+# Temporary commit-message files, which are a normal way to write a
+# multi-line message from a shell script and must never be committed.
+.git-commit-msg.tmp
+COMMIT_EDITMSG.local

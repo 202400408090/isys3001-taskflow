@@ -205,12 +205,12 @@ export function buildConfig(values, { sources = [] } = {}) {
   }
 
   /**
-   * Addresses permitted to set `X-Forwarded-For`.
+   * The addresses of reverse proxies permitted to set `X-Forwarded-For`.
    *
    * Empty by default, which means the header is ignored. That default is the
-   * safe one: honouring a forwarded address from an arbitrary peer lets any
-   * client choose its own rate-limit bucket by changing a single header, which
-   * is worse than the shared budget it appears to fix.
+   * safe one, and it is the correction applied in 1.0.1: honouring a forwarded
+   * address from an arbitrary peer lets any client choose its own rate-limit
+   * bucket by changing one header, and lets it spend another client's budget.
    */
   const trustedProxies = String(values.TRUSTED_PROXIES ?? '')
     .split(',')
