@@ -266,28 +266,47 @@ function release(version) {
   }
 
   const branch = currentBranch();
-  if (!['develop', 'main'].includes(branch)) {
+  const resumeBranch = `release/${version}`;
+  const hotfixResumeBranch = `hotfix/${version}`;
+
+  // Resuming. A release can stop part-way - the suite fails, the network drops,
+  // the operator is interrupted - and the sequence is designed so the repository
+  // is left in a consistent, described state when it does. Refusing to continue
+  // from that state would waste the work the abort deliberately preserved, so
+  // re-running the command on the release branch picks the sequence up where it
+  // stopped instead of starting over.
+  const resuming = branch === resumeBranch || branch === hotfixResumeBranch;
+
+  if (!resuming && !['develop', 'main'].includes(branch)) {
     process.stderr.write(
       `\n  A release is cut from develop (or main for a hotfix); the current branch is ${branch}.\n` +
+        '  To resume a stopped release, check out its release or hotfix branch and re-run.\n' +
         '  See CONTRIBUTING.md § 1.\n\n',
     );
     process.exit(1);
   }
 
-  const isHotfix = branch === 'main';
-  const releaseBranch = `${isHotfix ? 'hotfix' : 'release'}/${version}`;
+  const isHotfix = resuming ? branch === hotfixResumeBranch : branch === 'main';
+  const releaseBranch = isHotfix ? hotfixResumeBranch : resumeBranch;
 
-  process.stdout.write(`\n  ${isHotfix ? 'Hotfix' : 'Release'} ${version}\n`);
+  process.stdout.write(`\n  ${isHotfix ? 'Hotfix' : 'Release'} ${version}${resuming ? ' (resuming)' : ''}\n`);
   process.stdout.write(`  ${'-'.repeat(60)}\n`);
 
-  step(`creating ${releaseBranch} from ${branch}`);
-  git(['switch', '--create', releaseBranch]);
-  done(`on ${releaseBranch}`);
+  if (resuming) {
+    step(`already on ${releaseBranch}; continuing from the current state`);
+    done('the branch and its commits are kept');
+  } else {
+    step(`creating ${releaseBranch} from ${branch}`);
+    git(['switch', '--create', releaseBranch]);
+    done(`on ${releaseBranch}`);
+  }
 
   bump(version, { tolerateCurrent: true });
 
   step('regenerating CHANGELOG.md from the Git history');
-  run('node', ['scripts/generate-changelog.js']);
+  // Runs under the same interpreter as this script, for the same reason the test
+  // runner does: `node` is not guaranteed to be resolvable as a bare command.
+  run(process.execPath, ['scripts/generate-changelog.js']);
   done('CHANGELOG.md regenerated');
 
   if (!isClean()) {
