@@ -57,7 +57,20 @@ function run(command, args, { capture = false, allowFailure = false } = {}) {
 }
 
 const git = (args, options) => run('git', args, options);
-const npm = (args) => run('npm', args);
+
+/**
+ * Run the test suite.
+ *
+ * The runner is invoked directly rather than through `npm test`, because npm is
+ * not guaranteed to be on the PATH - a Node.js installation can exist without
+ * it, and on Windows the executable is a shell script that cannot be spawned
+ * directly. Using `process.execPath` means the suite runs with the interpreter
+ * that is already executing this script, which is also the interpreter the
+ * application will run under.
+ */
+function runTests() {
+  return run(process.execPath, ['--test', 'tests/**/*.test.js'], { capture: false });
+}
 
 function step(message) {
   process.stdout.write(`\n  → ${message}\n`);
@@ -288,7 +301,7 @@ function release(version) {
 
   step('running the test suite before the version is published');
   try {
-    npm(['test']);
+    runTests();
     done('the suite passes');
   } catch (error) {
     process.stderr.write(
