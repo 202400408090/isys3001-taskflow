@@ -1,4 +1,4 @@
-# ===========================================================================
+﻿# ===========================================================================
 # Continuous integration and delivery
 #
 # WHAT THIS PIPELINE GUARANTEES
@@ -175,7 +175,7 @@ jobs:
           # Cache layers between runs. The runtime image installs nothing, so
           # this matters mainly for the dependency-guard stage.
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-to disabled: gha cache export requires containerd image store
 
       - name: Start the container and wait for readiness
         run: |
@@ -385,3 +385,4 @@ jobs:
             echo 'kubectl set image deployment/taskflow app=ghcr.io/'"${{ github.repository }}:${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.commit }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
