@@ -18,10 +18,18 @@
     "seed": "node scripts/seed.js",
     "smoke": "node scripts/smoke-test.js",
     "changelog": "node scripts/generate-changelog.js",
-    "docker:build": "docker build -t isys3001/taskflow:$(node -p \"require('./package.json').version\") .",
-    "docker:up": "docker compose up --build -d",
+    "changelog:check": "node scripts/generate-changelog.js --check",
+    "env:check": "node scripts/validate-env.js",
+    "release": "node scripts/release.js release",
+    "release:status": "node scripts/release.js status",
+    "release:plan": "node scripts/release.js plan",
+    "release:verify": "node scripts/release.js verify",
+    "version:bump": "node scripts/release.js bump",
+    "version:tag": "node scripts/release.js tag",
+    "docker:build": "node scripts/build-image.js",
+    "docker:up": "docker compose up --build --detach",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f app"
+    "docker:logs": "docker compose logs --follow app"
   },
   "keywords": [
     "isys3001",

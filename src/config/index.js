@@ -29,8 +29,13 @@ export const PROJECT_ROOT = resolve(__dirname, '..', '..');
 
 export const VALID_ENVIRONMENTS = ['development', 'test', 'staging', 'production'];
 
-/** Safe built-in defaults - the first layer of the precedence chain. */
-const DEFAULTS = {
+/**
+ * Safe built-in defaults - the first layer of the precedence chain.
+ *
+ * Exported so that tooling can validate a profile against the same baseline the
+ * application uses, rather than duplicating the list and letting it drift.
+ */
+export const DEFAULTS = {
   NODE_ENV: 'development',
   PORT: '3000',
   HOST: '0.0.0.0',

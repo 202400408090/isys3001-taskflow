@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# .dockerignore
+#
+# Controls what enters the build context. This matters for three separate
+# reasons, which is why the file is more than an optimisation:
+#
+#   1. Correctness  - a host `node_modules/` built for Windows or macOS will
+#                     break the Linux image if it is copied in.
+#   2. Security     - a real `.env` in the context could be baked into a layer
+#                     and would then be readable by anyone with the image.
+#   3. Build time   - a smaller context transfers faster and produces a more
+#                     reproducible build because fewer host files can influence it.
+#
+# The entrypoint pattern is the reverse of .gitignore: everything is excluded,
+# and the files the image genuinely needs are re-included at the end.
+# ---------------------------------------------------------------------------
+
+# Version control and tooling metadata
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.idea
+.editorconfig
+
+# Dependencies are (re)installed inside the image, never copied in
+node_modules
+**/node_modules
+
+# ---------------------------------------------------------------------------
+# Every environment file is excluded, including the templates.
+#
+# The .example files hold only placeholders, but excluding the whole pattern is
+# the safer default: it means a developer who renames a template to a real file
+# cannot accidentally ship it in an image.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+*.env
+
+# Runtime state: the database is environment state, created by migrations
+data
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Outputs and caches
+coverage
+.nyc_output
+dist
+build
+.cache
+.tmp
+logs
+*.log
+
+# Local documentation and operations artefacts that the runtime does not need
+preview-*
+docs/screenshots
+*.pdf
+
+# OS noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ---------------------------------------------------------------------------
+# Re-include what the image needs.
+# ---------------------------------------------------------------------------
+!package.json
+!src
+!public
+!scripts
+!docker
+!VERSION

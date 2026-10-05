@@ -1,0 +1,34 @@
+# Normalise line endings across platforms.
+#
+# Without this file, a Windows developer with core.autocrlf=true and a Linux CI
+# runner with core.autocrlf=input produce different bytes for the same file, and
+# every commit appears to change every line. Declaring the intent here makes the
+# repository's line endings a property of the repository rather than of each
+# contributor's local configuration.
+
+* text=auto eol=lf
+
+# Shell scripts and container entrypoints must keep LF, or the container fails
+# to execute them with a confusing "no such file or directory" error.
+*.sh text eol=lf
+docker/*.sh text eol=lf
+
+# Windows-only batch files must keep CRLF to be executable there.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets are never normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.sqlite binary
+*.sqlite3 binary
+*.woff binary
+*.woff2 binary
+
+# Generated or vendored files are excluded from language statistics and from
+# diffs, so a review is not drowned in noise.
+CHANGELOG.md linguist-generated=true
