@@ -1,0 +1,117 @@
+# ---------------------------------------------------------------------------
+# Local multi-container environment.
+#
+# Docker Compose is used rather than a plain `docker run` invocation because the
+# deployment is a *configuration*: ports, volumes, environment variables, health
+# checks and resource limits are declared in a version-controlled file instead of
+# being remembered as a shell history entry.
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose up --build -d
+#   docker compose logs -f app
+#   docker compose down            # keeps the volume
+#   docker compose down --volumes  # also deletes the database
+# ---------------------------------------------------------------------------
+
+name: taskflow
+
+services:
+  app:
+    build:
+      # The build context is the repository root, because the image needs src/,
+      # public/ and scripts/. .dockerignore keeps the context small.
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Build metadata is passed in rather than read from the context, so a
+        # running container can prove which revision it was built from.
+        APP_VERSION: ${APP_VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-local}
+        BUILD_TIME: ${BUILD_TIME:-}
+        NODE_ENV: ${NODE_ENV:-production}
+    image: isys3001/taskflow:${APP_VERSION:-1.0.0}
+    container_name: taskflow-app
+    restart: unless-stopped
+
+    # `env_file` supplies the developer's local values, and `environment`
+    # overrides the ones that must differ inside the network. Later entries win,
+    # which is why the wildcard CORS origin from .env.example is replaced here.
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      HOST: 0.0.0.0
+      PORT: "8080"
+      DATABASE_PATH: /var/lib/taskflow/taskflow.sqlite
+      # The browser loads the client from the same origin, so no cross-origin
+      # request is made and an explicit allow list is correct rather than a
+      # wildcard that the configuration validator would refuse anyway.
+      CORS_ORIGINS: http://localhost:${APP_PORT:-3000},http://127.0.0.1:${APP_PORT:-3000}
+      LOG_FORMAT: json
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      GIT_COMMIT: ${GIT_COMMIT:-local}
+      BUILD_TIME: ${BUILD_TIME:-}
+
+    ports:
+      # Host port is configurable so the stack does not collide with a locally
+      # running `npm start` on 3000.
+      - "${APP_PORT:-3000}:8080"
+
+    volumes:
+      # A named volume, not a bind mount: the database is environment state that
+      # must survive container replacement, and a named volume does not depend on
+      # a host path existing with the right ownership.
+      - taskflow-data:/var/lib/taskflow
+
+    healthcheck:
+      # Declared here as well as in the image so the interval can be tuned for
+      # local work without rebuilding.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    # Bound the damage a runaway process can do to the host.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          memory: 64M
+
+    # The server writes no logs to disk and holds no state outside the volume,
+    # so the container filesystem can be read-only. /tmp is a tmpfs because the
+    # Node.js runtime may still need a writable temporary directory.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - taskflow
+
+volumes:
+  taskflow-data:
+    name: taskflow-data
+    labels:
+      com.taskflow.purpose: "Persistent SQLite database; remigrated on every start"
+
+networks:
+  taskflow:
+    name: taskflow
+    driver: bridge
